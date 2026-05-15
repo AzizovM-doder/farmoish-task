@@ -27,6 +27,21 @@ export const useTodo = create<IStore>()((set, get) => ({
       }
     });
     console.log(categories);
-    return set({ categories : categories });
+    set({ categories });
+  },
+  moveTodo: (todoId: number, newCategoryID: number) => {
+    set((state) => ({
+      data: state.data.map((todo) =>
+        todo.id === todoId ? { ...todo, categoryID: newCategoryID } : todo
+      ),
+    }));
+  },
+  reorderCategories: (startIndex: number, endIndex: number) => {
+    set((state) => {
+      const newCategories = Array.from(state.categories);
+      const [removed] = newCategories.splice(startIndex, 1);
+      newCategories.splice(endIndex, 0, removed);
+      return { categories: newCategories };
+    });
   },
 }));
