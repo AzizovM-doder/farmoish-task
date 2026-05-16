@@ -5,16 +5,17 @@ export interface IStore {
   categories :  ICategory[];
   fetchData: () => void;
   categoriesCreater : (data : ITodo[]) => void;
-  moveTodo: (todoId: number, newCategoryID: number) => void;
+  moveTodo: (todoId: string, newCategoryID: number) => void;
   reorderCategories: (startIndex: number, endIndex: number) => void;
 }
 export interface ITodo {
-  id: number;
+  id: string;
   title: string;
-  date: Date;
+  date: string;
   status: boolean;
   categoryName: string;
   categoryID: number;
+  avatar: string;
 }
 export interface ICategory{
     categoryName : string,

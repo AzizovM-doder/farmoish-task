@@ -4,6 +4,33 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
+:root {
+  --bg-design: #F1F1FF;
+  --text-design: #5D5DFF;
+  --accent-design: #8E8FFA;
+  --circle-design: #DCDCFE;
+
+  --bg-frontend: #EBF9FF;
+  --text-frontend: #00A3E0;
+  --accent-frontend: #48C0F0;
+  --circle-frontend: #D5F1FF;
+
+  --bg-backend: #FFF8E7;
+  --text-backend: #E29E00;
+  --accent-backend: #FFC470;
+  --circle-backend: #FFF1D6;
+
+  --bg-testing: #FFF2F2;
+  --text-testing: #FF4D4D;
+  --accent-testing: #FF6B6B;
+  --circle-testing: #FFE3E3;
+}
+
 body {
   @apply bg-gray-50 text-gray-900;
 }
+
+.column-design { --c-bg: var(--bg-design); --c-text: var(--text-design); --c-accent: var(--accent-design); --c-circle: var(--circle-design); }
+.column-frontend { --c-bg: var(--bg-frontend); --c-text: var(--text-frontend); --c-accent: var(--accent-frontend); --c-circle: var(--circle-frontend); }
+.column-backend { --c-bg: var(--bg-backend); --c-text: var(--text-backend); --c-accent: var(--accent-backend); --c-circle: var(--circle-backend); }
+.column-testing { --c-bg: var(--bg-testing); --c-text: var(--text-testing); --c-accent: var(--accent-testing); --c-circle: var(--circle-testing); }

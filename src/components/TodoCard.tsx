@@ -8,7 +8,7 @@ interface Props {
 
 const TodoCard = ({ todo, index }: Props) => {
   return (
-    <Draggable draggableId={todo.id.toString()} index={index}>
+    <Draggable draggableId={todo.id} index={index}>
       {(provided, snapshot) => (
         <article
           ref={provided.innerRef}
@@ -23,15 +23,18 @@ const TodoCard = ({ todo, index }: Props) => {
           </h3>
           
           <div className="flex items-center justify-between mt-auto">
-            <time className="text-xs text-gray-500 font-medium">
-              {new Date(todo.date).toLocaleDateString()}
-            </time>
+            <div className="flex items-center gap-2">
+              <img src={todo.avatar} alt="avatar" className="w-6 h-6 rounded-full" />
+              <time className="text-xs text-gray-500 font-medium">
+                {new Date(todo.date).toLocaleDateString()}
+              </time>
+            </div>
             <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
               todo.status 
                 ? "bg-green-100 text-green-700" 
                 : "bg-amber-100 text-amber-700"
             }`}>
-              {todo.status ? "Completed" : "Active"}
+              {todo.status ? "Completed" : "Waiting"}
             </span>
           </div>
         </article>

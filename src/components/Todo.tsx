@@ -26,7 +26,7 @@ const Todo = () => {
       return;
     }
 
-    moveTodo(Number(draggableId), Number(destination.droppableId));
+    moveTodo(draggableId, Number(destination.droppableId));
   };
 
   return (

@@ -12,6 +12,7 @@ export const useTodo = create<IStore>()((set, get) => ({
       );
       const dataR = await response.json();
       
+      // Update logic if needed, but keeping user's style
       get().categoriesCreater(dataR);
       set({ data: dataR, loading: false });
     } catch (error) {
@@ -29,7 +30,7 @@ export const useTodo = create<IStore>()((set, get) => ({
     console.log(categories);
     set({ categories });
   },
-  moveTodo: (todoId: number, newCategoryID: number) => {
+  moveTodo: (todoId: string, newCategoryID: number) => {
     set((state) => ({
       data: state.data.map((todo) =>
         todo.id === todoId ? { ...todo, categoryID: newCategoryID } : todo
