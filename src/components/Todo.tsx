@@ -32,7 +32,10 @@ const Todo = () => {
       return;
     }
 
-    moveTodo(draggableId, Number(destination.droppableId));
+    // Small timeout to allow drag animation to finish before store update
+    setTimeout(() => {
+      moveTodo(draggableId, Number(destination.droppableId));
+    }, 0);
   };
 
   if (error) {
@@ -76,25 +79,26 @@ const Todo = () => {
         </div>
       ) : (
         <DragDropContext onDragEnd={onDragEnd}>
-          <Droppable droppableId="all-columns" direction="horizontal" type="column">
-            {(provided) => (
-              <div
-                {...provided.droppableProps}
-                ref={provided.innerRef}
-                className="board-container items-start"
-              >
-                {categories.map((category, index) => (
-                  <TodoColumn 
-                    key={category.categoryID} 
-                    category={category}
-                    index={index}
-                    todos={data.filter(t => t.categoryID === category.categoryID)}
-                  />
-                ))}
-                {provided.placeholder}
-              </div>
-            )}
-          </Droppable>
+          <div className="board-container">
+            <Droppable droppableId="all-columns" direction="horizontal" type="column">
+              {(provided) => (
+                <div
+                  {...provided.droppableProps}
+                  ref={provided.innerRef}
+                  className="flex gap-6 items-start"
+                >
+                  {categories.map((category, index) => (
+                    <TodoColumn 
+                      key={category.categoryID} 
+                      category={category}
+                      index={index}
+                    />
+                  ))}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </div>
         </DragDropContext>
       )}
     </section>

@@ -1,6 +1,8 @@
 import { Draggable } from "@hello-pangea/dnd";
 import type { ITodo } from "../types/todo.types";
 import { useTodo } from "../store/todo";
+import { useState } from "react";
+import DeleteConfirmModal from "./DeleteConfirmModal";
 
 interface Props {
   todo: ITodo;
@@ -8,7 +10,8 @@ interface Props {
 }
 
 const TodoCard = ({ todo, index }: Props) => {
-  const { toggleTodo, updatingTodoId } = useTodo();
+  const { toggleTodo, updatingTodoId, deleteTodo } = useTodo();
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const isUpdating = updatingTodoId === todo.id;
 
   return (
@@ -31,17 +34,32 @@ const TodoCard = ({ todo, index }: Props) => {
             <h3 className={`text-lg font-medium text-gray-800 leading-tight ${todo.status ? "line-through text-gray-400" : ""}`}>
               {todo.title}
             </h3>
-            <input 
-              type="checkbox" 
-              checked={todo.status} 
-              onChange={() => toggleTodo(todo.id)}
-              className="w-5 h-5 mt-1 cursor-pointer rounded-full accent-blue-500"
-            />
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setIsDeleteOpen(true)}
+                className="text-gray-300 hover:text-red-500 transition-colors"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              </button>
+              <input 
+                type="checkbox" 
+                checked={todo.status} 
+                onChange={() => toggleTodo(todo.id)}
+                className="w-5 h-5 cursor-pointer rounded-full accent-blue-500"
+              />
+            </div>
           </div>
           
           <div className="flex items-center justify-between mt-auto">
             <div className="flex items-center gap-2">
-              <img src={todo.avatar} alt="avatar" className="w-6 h-6 rounded-full" />
+              {todo.avatar.startsWith("#") ? (
+                <div 
+                  className="w-6 h-6 rounded-full border border-gray-200"
+                  style={{ backgroundColor: todo.avatar }}
+                />
+              ) : (
+                <img src={todo.avatar} alt="avatar" className="w-6 h-6 rounded-full" />
+              )}
               <time className="text-xs text-gray-500 font-medium">
                 {new Date(todo.date).toLocaleDateString()}
               </time>
@@ -54,6 +72,12 @@ const TodoCard = ({ todo, index }: Props) => {
               {todo.status ? "Completed" : "Active"}
             </span>
           </div>
+          <DeleteConfirmModal 
+            isOpen={isDeleteOpen} 
+            onClose={() => setIsDeleteOpen(false)} 
+            onConfirm={() => deleteTodo(todo.id)} 
+            title={todo.title}
+          />
         </article>
       )}
     </Draggable>

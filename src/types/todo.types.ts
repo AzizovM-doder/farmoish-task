@@ -4,12 +4,15 @@ export interface IStore {
   loading: boolean;
   error: string | null;
   updatingTodoId: string | null;
+  lastUpdated: number;
   categories: ICategory[];
   fetchData: (search?: string) => void;
   categoriesCreater: (data: ITodo[]) => void;
   moveTodo: (todoId: string, newCategoryID: number) => void;
   toggleTodo: (todoId: string) => void;
   reorderCategories: (startIndex: number, endIndex: number) => void;
+  addTodo: (todo: Partial<ITodo>) => void;
+  deleteTodo: (todoId: string) => void;
 }
 export interface ITodo {
   id: string;
