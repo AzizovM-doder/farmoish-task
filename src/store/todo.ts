@@ -5,6 +5,10 @@ import axios from "axios";
 const API_URL = "https://6a0702b9c83ba8ad9b3e4bae.mockapi.io/todo/api";
 
 interface ExtendedStore extends IStore {
+  statusFilter: string;
+  searchValue: string;
+  setStatusFilter: (filter: string) => void;
+  setSearchValue: (search: string) => void;
   columnData: Record<number, ITodo[]>;
   fetchColumn: (categoryId: number, page: number, limit: number) => Promise<void>;
 }
@@ -17,119 +21,131 @@ export const useTodo = create<ExtendedStore>()((set, get) => ({
   error: null,
   updatingTodoId: null,
   lastUpdated: Date.now(),
+  statusFilter: "all",
+  searchValue: "",
+
+  setStatusFilter: (filter) => {
+    set({ statusFilter: filter, lastUpdated: Date.now() });
+    get().fetchData(); // Ensure global data is in sync with filter
+  },
+  setSearchValue: (search) => {
+    set({ searchValue: search, lastUpdated: Date.now() });
+    get().fetchData();
+  },
   
-  fetchData: async (search?: string) => {
+  fetchData: async () => {
     try {
-      set({ loading: true, error: null });
-      const url = search ? `${API_URL}?title=${search}` : API_URL;
-      const response = await axios.get(url);
-      const dataR = response.data;
-      
-      get().categoriesCreater(dataR);
-      set({ data: dataR, loading: false });
-    } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 404) {
-        set({ data: [], loading: false, error: null });
-        return;
+      const { searchValue, statusFilter } = get();
+      // Increase limit to 100 to ensure we get all items for local filtering
+      const res = await axios.get(`${API_URL}?limit=100`);
+      let list = res.data;
+
+      if (searchValue) {
+        list = list.filter((t: ITodo) => t.title.toLowerCase().includes(searchValue.toLowerCase()));
       }
-      const err = error as Error;
-      set({ error: err.message, loading: false });
+      if (statusFilter !== "all") {
+        list = list.filter((t: ITodo) => t.status === (statusFilter === "completed"));
+      }
+
+      get().categoriesCreater(list);
+      set({ data: list });
+    } catch (e) {
+      console.error(e);
     }
   },
 
   fetchColumn: async (categoryId, page, limit) => {
     try {
-      const response = await axios.get(
-        `${API_URL}?limit=${limit}&page=${page}&categoryID=${categoryId}`
-      );
+      const { statusFilter, searchValue } = get();
+      // Fetch all items for this category to ensure local pagination is accurate
+      const res = await axios.get(`${API_URL}?categoryID=${categoryId}&limit=100`);
+      let list = res.data;
+
+      if (searchValue) {
+        list = list.filter((t: ITodo) => t.title.toLowerCase().includes(searchValue.toLowerCase()));
+      }
+      if (statusFilter !== "all") {
+        list = list.filter((t: ITodo) => t.status === (statusFilter === "completed"));
+      }
+
+      // Slice based on the FILTERED list
+      const paginated = list.slice((page - 1) * limit, page * limit);
+      
       set((state) => ({
-        columnData: { ...state.columnData, [categoryId]: response.data }
+        columnData: { ...state.columnData, [categoryId]: paginated }
       }));
-    } catch (error) {
-      console.error("Failed to fetch column:", error);
+    } catch (e) {
+      console.error(e);
     }
   },
 
-  categoriesCreater: (data: ITodo[]) => {
+  categoriesCreater: (data) => {
     if (get().categories.length > 0) return;
-    const categories: ICategory[] = [];
+    const cats: ICategory[] = [];
     data.forEach((e) => {
-      if (!categories.find((c) => c.categoryID == e.categoryID)) {
-        const obj: ICategory = { categoryName: e.categoryName, categoryID: e.categoryID };
-        categories.push(obj)
+      if (!cats.find((c) => c.categoryID == e.categoryID)) {
+        cats.push({ categoryName: e.categoryName, categoryID: e.categoryID });
       }
     });
-    set({ categories });
-    localStorage.setItem("column_order", JSON.stringify(categories));
+    if (cats.length > 0) {
+      set({ categories: cats });
+      localStorage.setItem("column_order", JSON.stringify(cats));
+    }
   },
 
   moveTodo: async (todoId, newCategoryID) => {
-    const category = get().categories.find(c => c.categoryID === newCategoryID);
-    if (!category) return;
+    const { categories, data, columnData } = get();
+    const cat = categories.find(c => c.categoryID === newCategoryID);
+    const todo = data.find(t => t.id === todoId);
+    if (!cat || !todo) return;
 
-    const currentTodo = get().data.find(t => t.id === todoId);
-    if (!currentTodo) return;
-    const oldCategoryID = currentTodo.categoryID;
+    const oldID = todo.categoryID;
+    const updated = { ...todo, categoryID: newCategoryID, categoryName: cat.categoryName };
 
-    // Optimistic UI for both global data and columnData
-    set((state) => {
-      const updatedData = state.data.map(t => 
-        t.id === todoId ? { ...t, categoryID: newCategoryID, categoryName: category.categoryName } : t
-      );
-      
-      // Update columnData optimistically to prevent snap-back
-      const sourceCol = state.columnData[oldCategoryID] || [];
-      const destCol = state.columnData[newCategoryID] || [];
-      const itemToMove = sourceCol.find(t => t.id === todoId) || currentTodo;
-
-      return {
-        data: updatedData,
-        columnData: {
-          ...state.columnData,
-          [oldCategoryID]: sourceCol.filter(t => t.id !== todoId),
-          [newCategoryID]: [{ ...itemToMove, categoryID: newCategoryID, categoryName: category.categoryName }, ...destCol].slice(0, 3)
-        }
-      };
+    set({
+      data: data.map(t => t.id === todoId ? updated : t),
+      columnData: {
+        ...columnData,
+        [oldID]: (columnData[oldID] || []).filter(t => t.id !== todoId),
+        [newCategoryID]: [updated, ...(columnData[newCategoryID] || [])].slice(0, 3)
+      }
     });
 
     try {
-      // Find the fully updated todo object
-      const updatedTodo = get().data.find(t => t.id === todoId);
-      await axios.put(`${API_URL}/${todoId}`, updatedTodo);
-      
-      // Instead of refreshing everything, we just sync the global count in background
-      const response = await axios.get(API_URL);
-      set({ data: response.data });
-      
-      // Note: We don't trigger lastUpdated here to avoid flickering current pages
-    } catch (error) {
-      console.error("Move failed:", error);
-      // Optional: rollback if error
+      await axios.put(`${API_URL}/${todoId}`, updated);
+      await get().fetchData();
+    } catch (e) {
+      console.error(e);
     }
   },
 
   toggleTodo: async (todoId) => {
-    const todo = get().data.find(t => t.id === todoId);
+    const { data, columnData, statusFilter } = get();
+    const todo = data.find(t => t.id === todoId);
     if (!todo) return;
+    
     set({ updatingTodoId: todoId });
-    const newStatus = !todo.status;
+    const nextStatus = !todo.status;
+    const updated = { ...todo, status: nextStatus };
 
-    set((state) => ({
-      data: state.data.map(t => t.id === todoId ? { ...t, status: newStatus } : t),
+    set({
+      data: data.map(t => t.id === todoId ? updated : t),
       columnData: Object.fromEntries(
-        Object.entries(state.columnData).map(([id, list]) => [
-          id,
-          list.map(t => t.id === todoId ? { ...t, status: newStatus } : t)
-        ])
+        Object.entries(columnData).map(([id, list]) => {
+          let newList = list.map(t => t.id === todoId ? updated : t);
+          if (statusFilter !== "all") {
+            newList = newList.filter(t => t.status === (statusFilter === "completed"));
+          }
+          return [id, newList];
+        })
       )
-    }));
+    });
 
     try {
-      await axios.put(`${API_URL}/${todoId}`, { ...todo, status: newStatus });
-      // Minor sync
-      set({ lastUpdated: Date.now() });
-    } catch (error) {
-      console.error("Toggle failed:", error);
+      await axios.put(`${API_URL}/${todoId}`, updated);
+      await get().fetchData();
+    } catch (e) {
+      console.error(e);
     } finally {
       set({ updatingTodoId: null });
     }
@@ -138,44 +154,36 @@ export const useTodo = create<ExtendedStore>()((set, get) => ({
   deleteTodo: async (todoId) => {
     try {
       await axios.delete(`${API_URL}/${todoId}`);
-      set((state) => ({
-        data: state.data.filter(t => t.id !== todoId),
+      const { data, columnData } = get();
+      set({
+        data: data.filter(t => t.id !== todoId),
         columnData: Object.fromEntries(
-          Object.entries(state.columnData).map(([id, list]) => [
-            id,
-            list.filter(t => t.id !== todoId)
+          Object.entries(columnData).map(([id, list]) => [
+            id, list.filter(t => t.id !== todoId)
           ])
-        ),
-        lastUpdated: Date.now()
-      }));
-    } catch (error) {
-      console.error("Delete failed:", error);
-    }
-  },
-
-  addTodo: async (newTodo) => {
-    try {
-      const response = await axios.post(API_URL, {
-        ...newTodo,
-        status: false,
+        )
       });
-      const added = response.data;
-      set((state) => ({
-        data: [...state.data, added],
-        lastUpdated: Date.now()
-      }));
-    } catch (error) {
-      console.error("Add failed:", error);
+      await get().fetchData();
+    } catch (e) {
+      console.error(e);
     }
   },
 
-  reorderCategories: (startIndex, endIndex) => {
-    set((state) => {
-      const newCats = Array.from(state.categories);
-      const [removed] = newCats.splice(startIndex, 1);
-      newCats.splice(endIndex, 0, removed);
-      localStorage.setItem("column_order", JSON.stringify(newCats));
-      return { categories: newCats };
-    });
+  addTodo: async (todo) => {
+    try {
+      const res = await axios.post(API_URL, { ...todo, status: false });
+      set({ data: [...get().data, res.data] });
+      await get().fetchData();
+    } catch (e) {
+      console.error(e);
+    }
+  },
+
+  reorderCategories: (start, end) => {
+    const cats = [...get().categories];
+    const [item] = cats.splice(start, 1);
+    cats.splice(end, 0, item);
+    set({ categories: cats });
+    localStorage.setItem("column_order", JSON.stringify(cats));
   },
 }));

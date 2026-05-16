@@ -20,7 +20,7 @@ interface Props {
 }
 
 const TodoColumn = memo(({ category, index }: Props) => {
-  const { columnData, fetchColumn, data } = useTodo();
+  const { columnData, fetchColumn, data, statusFilter, searchValue } = useTodo();
   const theme = THEME_MAP[category.categoryName] || THEME_LIST[category.categoryID % THEME_LIST.length];
   
   const [isLoading, setIsLoading] = useState(false);
@@ -40,12 +40,21 @@ const TodoColumn = memo(({ category, index }: Props) => {
   };
 
   useEffect(() => {
-    loadData();
-  }, [currentPage, category.categoryID]);
+    const handler = setTimeout(() => {
+      loadData();
+    }, 400);
+
+    return () => clearTimeout(handler);
+  }, [currentPage, category.categoryID, statusFilter, searchValue]);
+
+  // Reset to page 1 when filter or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, searchValue]);
 
   // If current page becomes empty (due to move/delete), go back one page
   useEffect(() => {
-    if (currentPage > totalPages && totalPages > 0) {
+    if (totalPages > 0 && currentPage > totalPages) {
       setCurrentPage(totalPages);
     }
   }, [totalPages, currentPage]);
@@ -87,9 +96,14 @@ const TodoColumn = memo(({ category, index }: Props) => {
                   snapshot.isDraggingOver ? "bg-white/30" : ""
                 }`}
               >
-                {isLoading && todos.length === 0 ? (
-                  <div className="flex justify-center py-10">
-                    <div className="w-8 h-8 border-3 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                {isLoading ? (
+                  <div className="flex justify-center items-center py-20">
+                    <div className="w-10 h-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                ) : todos.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-gray-300">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                    <p className="text-xs font-bold mt-2 uppercase tracking-widest">Empty</p>
                   </div>
                 ) : (
                   todos.map((todo, idx) => (
