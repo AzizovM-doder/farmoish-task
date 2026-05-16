@@ -5,7 +5,7 @@ export interface IStore {
   error: string | null;
   updatingTodoId: string | null;
   categories: ICategory[];
-  fetchData: () => void;
+  fetchData: (search?: string) => void;
   categoriesCreater: (data: ITodo[]) => void;
   moveTodo: (todoId: string, newCategoryID: number) => void;
   toggleTodo: (todoId: string) => void;

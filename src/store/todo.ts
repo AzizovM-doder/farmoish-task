@@ -11,15 +11,21 @@ export const useTodo = create<IStore>()((set, get) => ({
   error: null,
   updatingTodoId: null,
   
-  fetchData: async () => {
+  fetchData: async (search?: string) => {
     try {
+      
       set({ loading: true, error: null });
-      const response = await axios.get(API_URL);
+      const url = search ? `${API_URL}?title=${search}` : API_URL;
+      const response = await axios.get(url);
       const dataR = response.data;
       
       get().categoriesCreater(dataR);
       set({ data: dataR, loading: false });
     } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        set({ data: [], loading: false, error: null });
+        return;
+      }
       const err = error as Error;
       console.error(err);
       set({ error: err.message, loading: false });
