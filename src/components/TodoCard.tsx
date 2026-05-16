@@ -8,7 +8,8 @@ interface Props {
 }
 
 const TodoCard = ({ todo, index }: Props) => {
-  const { toggleTodo } = useTodo();
+  const { toggleTodo, updatingTodoId } = useTodo();
+  const isUpdating = updatingTodoId === todo.id;
 
   return (
     <Draggable draggableId={todo.id} index={index}>
@@ -17,10 +18,15 @@ const TodoCard = ({ todo, index }: Props) => {
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          className={`flex flex-col gap-4 p-5 rounded-xl w-full bg-white border border-gray-200 shadow-sm transition-shadow ${
+          className={`relative flex flex-col gap-4 p-5 rounded-xl w-full bg-white border border-gray-200 shadow-sm transition-shadow ${
             snapshot.isDragging ? "shadow-xl ring-2 ring-blue-400 border-transparent" : "hover:shadow-md"
           }`}
         >
+          {isUpdating && (
+            <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-xl backdrop-blur-[1px]">
+              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          )}
           <div className="flex items-start justify-between gap-2">
             <h3 className={`text-lg font-medium text-gray-800 leading-tight ${todo.status ? "line-through text-gray-400" : ""}`}>
               {todo.title}

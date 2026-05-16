@@ -1,20 +1,21 @@
 import { create } from "zustand";
 import type { ICategory, IStore, ITodo } from "../types/todo.types";
+import axios from "axios";
+
+const API_URL = "https://6a0702b9c83ba8ad9b3e4bae.mockapi.io/todo/api";
 
 export const useTodo = create<IStore>()((set, get) => ({
   data: [],
   categories: [],
   loading: false,
   error: null,
+  updatingTodoId: null,
   
   fetchData: async () => {
     try {
       set({ loading: true, error: null });
-      const response = await fetch(
-        "https://6a0702b9c83ba8ad9b3e4bae.mockapi.io/todo/api",
-      );
-      if (!response.ok) throw new Error("Failed to fetch data");
-      const dataR = await response.json();
+      const response = await axios.get(API_URL);
+      const dataR = response.data;
       
       get().categoriesCreater(dataR);
       set({ data: dataR, loading: false });
@@ -35,18 +36,35 @@ export const useTodo = create<IStore>()((set, get) => ({
     console.log(categories);
     set({ categories });
   },
-  moveTodo: (todoId: string, newCategoryID: number) => {
+  moveTodo: async (todoId: string, newCategoryID: number) => {
+    const category = get().categories.find(c => c.categoryID === newCategoryID);
+    if (!category) return;
+
+    set({ updatingTodoId: todoId });
+
     set((state) => ({
       data: state.data.map((todo) =>
-        todo.id === todoId ? { ...todo, categoryID: newCategoryID } : todo
+        todo.id === todoId 
+          ? { ...todo, categoryID: newCategoryID, categoryName: category.categoryName } 
+          : todo
       ),
     }));
+
+    try {
+      const todo = get().data.find(t => t.id === todoId);
+      await axios.put(`${API_URL}/${todoId}`, todo);
+    } catch (error) {
+      console.error("Failed to move todo:", error);
+    } finally {
+      set({ updatingTodoId: null });
+    }
   },
   toggleTodo: async (todoId: string) => {
     const todo = get().data.find((t) => t.id === todoId);
     if (!todo) return;
     
-    // Local update for speed
+    set({ updatingTodoId: todoId });
+
     const newStatus = !todo.status;
     set((state) => ({
       data: state.data.map((t) =>
@@ -55,17 +73,11 @@ export const useTodo = create<IStore>()((set, get) => ({
     }));
 
     try {
-      await fetch(
-        `https://6a0702b9c83ba8ad9b3e4bae.mockapi.io/todo/api/${todoId}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...todo, status: newStatus }),
-        }
-      );
+      await axios.put(`${API_URL}/${todoId}`, { ...todo, status: newStatus });
     } catch (error) {
       console.error("Failed to update status:", error);
-      // Rollback on error if desired, but user style usually keeps it simple
+    } finally {
+      set({ updatingTodoId: null });
     }
   },
   reorderCategories: (startIndex: number, endIndex: number) => {

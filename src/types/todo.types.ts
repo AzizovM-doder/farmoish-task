@@ -3,6 +3,7 @@ export interface IStore {
   data: ITodo[];
   loading: boolean;
   error: string | null;
+  updatingTodoId: string | null;
   categories: ICategory[];
   fetchData: () => void;
   categoriesCreater: (data: ITodo[]) => void;
