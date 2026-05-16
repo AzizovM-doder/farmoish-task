@@ -37,8 +37,7 @@ const Todo = () => {
     <section className="max-w-[1600px] mx-auto p-4 md:p-8 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 px-2">
         <div>
-          <h1 className="text-3xl font-bold text-[#1B2559]">Todo Board</h1>
-          <p className="text-sm font-bold text-gray-400 mt-1">Manage your tasks across columns</p>
+          <h1 className="text-3xl font-bold text-[#1B2559]">Todo</h1>
         </div>
         
         <div className="flex flex-col md:flex-row gap-4 items-center">
@@ -139,5 +138,4 @@ const Todo = () => {
     </section>
   );
 };
-
 export default Todo;
