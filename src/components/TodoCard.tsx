@@ -1,5 +1,6 @@
 import { Draggable } from "@hello-pangea/dnd";
 import type { ITodo } from "../types/todo.types";
+import { useTodo } from "../store/todo";
 
 interface Props {
   todo: ITodo;
@@ -7,6 +8,8 @@ interface Props {
 }
 
 const TodoCard = ({ todo, index }: Props) => {
+  const { toggleTodo } = useTodo();
+
   return (
     <Draggable draggableId={todo.id} index={index}>
       {(provided, snapshot) => (
@@ -18,9 +21,17 @@ const TodoCard = ({ todo, index }: Props) => {
             snapshot.isDragging ? "shadow-xl ring-2 ring-blue-400 border-transparent" : "hover:shadow-md"
           }`}
         >
-          <h3 className="text-lg font-medium text-gray-800 leading-tight">
-            {todo.title}
-          </h3>
+          <div className="flex items-start justify-between gap-2">
+            <h3 className={`text-lg font-medium text-gray-800 leading-tight ${todo.status ? "line-through text-gray-400" : ""}`}>
+              {todo.title}
+            </h3>
+            <input 
+              type="checkbox" 
+              checked={todo.status} 
+              onChange={() => toggleTodo(todo.id)}
+              className="w-5 h-5 mt-1 cursor-pointer rounded-full accent-blue-500"
+            />
+          </div>
           
           <div className="flex items-center justify-between mt-auto">
             <div className="flex items-center gap-2">
@@ -34,7 +45,7 @@ const TodoCard = ({ todo, index }: Props) => {
                 ? "bg-green-100 text-green-700" 
                 : "bg-amber-100 text-amber-700"
             }`}>
-              {todo.status ? "Completed" : "Waiting"}
+              {todo.status ? "Completed" : "Active"}
             </span>
           </div>
         </article>

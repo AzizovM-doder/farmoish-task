@@ -4,7 +4,7 @@ import TodoColumn from "./TodoColumn";
 import { useTodo } from "../store/todo";
 
 const Todo = () => {
-  const { data, categories, loading, fetchData, moveTodo, reorderCategories } = useTodo();
+  const { data, categories, loading, error, fetchData, moveTodo, reorderCategories } = useTodo();
 
   useEffect(() => {
     fetchData();
@@ -29,13 +29,27 @@ const Todo = () => {
     moveTodo(draggableId, Number(destination.droppableId));
   };
 
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen gap-4">
+        <p className="text-red-500 font-bold text-xl">{error}</p>
+        <button 
+          onClick={() => fetchData()} 
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg font-bold"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
   return (
     <section className="max-w-[1600px] mx-auto p-8">
       <h1 className="text-3xl font-bold mb-10 text-gray-800">Board</h1>
       
       {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="flex justify-center items-center h-[50vh]">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
       ) : (
         <DragDropContext onDragEnd={onDragEnd}>

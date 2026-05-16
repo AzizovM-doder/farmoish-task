@@ -2,10 +2,12 @@
 export interface IStore {
   data: ITodo[];
   loading: boolean;
-  categories :  ICategory[];
+  error: string | null;
+  categories: ICategory[];
   fetchData: () => void;
-  categoriesCreater : (data : ITodo[]) => void;
+  categoriesCreater: (data: ITodo[]) => void;
   moveTodo: (todoId: string, newCategoryID: number) => void;
+  toggleTodo: (todoId: string) => void;
   reorderCategories: (startIndex: number, endIndex: number) => void;
 }
 export interface ITodo {
@@ -17,7 +19,7 @@ export interface ITodo {
   categoryID: number;
   avatar: string;
 }
-export interface ICategory{
-    categoryName : string,
-    categoryID : number
+export interface ICategory {
+  categoryName: string,
+  categoryID: number
 }
