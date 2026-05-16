@@ -31,12 +31,11 @@ body {
 }
 
 .board-container {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 24px;
-  overflow-x: auto;
   padding: 10px;
   scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
   min-height: calc(100vh - 180px);
 }
 

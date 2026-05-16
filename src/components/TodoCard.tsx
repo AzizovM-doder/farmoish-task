@@ -43,8 +43,13 @@ const TodoCard = ({ todo, index }: Props) => {
             ref={provided.innerRef}
             className={`bg-white p-5 rounded-3xl shadow-sm border border-gray-100 transition-all duration-200 relative group ${
               snapshot.isDragging ? "shadow-2xl scale-[1.05] border-blue-200 z-50" : "hover:shadow-md hover:border-gray-200"
-            }`}
+            } ${updatingTodoId === todo.id ? "opacity-70 pointer-events-none" : ""}`}
           >
+            {updatingTodoId === todo.id && (
+              <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px] rounded-3xl z-10 flex items-center justify-center">
+                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            )}
             <div className="flex justify-between items-start mb-4">
               <h3 className={`font-bold text-[#1B2559] text-lg leading-tight flex-1 pr-8 transition-all ${todo.status ? "line-through opacity-50" : ""}`}>
                 {todo.title}
