@@ -11,6 +11,8 @@ interface ExtendedStore extends IStore {
   setSearchValue: (search: string) => void;
   columnData: Record<number, ITodo[]>;
   fetchColumn: (categoryId: number, page: number, limit: number) => Promise<void>;
+  updateTodo: (todoId: string, updates: Partial<ITodo>) => Promise<void>;
+  updateCategoryName: (categoryId: number, newName: string) => Promise<void>;
 }
 
 export const useTodo = create<ExtendedStore>()((set, get) => ({
@@ -26,7 +28,7 @@ export const useTodo = create<ExtendedStore>()((set, get) => ({
 
   setStatusFilter: (filter) => {
     set({ statusFilter: filter, lastUpdated: Date.now() });
-    get().fetchData(); // Ensure global data is in sync with filter
+    get().fetchData();
   },
   setSearchValue: (search) => {
     set({ searchValue: search, lastUpdated: Date.now() });
@@ -36,47 +38,33 @@ export const useTodo = create<ExtendedStore>()((set, get) => ({
   fetchData: async () => {
     try {
       const { searchValue, statusFilter } = get();
-      // Increase limit to 100 to ensure we get all items for local filtering
       const res = await axios.get(`${API_URL}?limit=100`);
       let list = res.data;
-
       if (searchValue) {
         list = list.filter((t: ITodo) => t.title.toLowerCase().includes(searchValue.toLowerCase()));
       }
       if (statusFilter !== "all") {
         list = list.filter((t: ITodo) => t.status === (statusFilter === "completed"));
       }
-
       get().categoriesCreater(list);
       set({ data: list });
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
   },
 
   fetchColumn: async (categoryId, page, limit) => {
     try {
       const { statusFilter, searchValue } = get();
-      // Fetch all items for this category to ensure local pagination is accurate
       const res = await axios.get(`${API_URL}?categoryID=${categoryId}&limit=100`);
       let list = res.data;
-
       if (searchValue) {
         list = list.filter((t: ITodo) => t.title.toLowerCase().includes(searchValue.toLowerCase()));
       }
       if (statusFilter !== "all") {
         list = list.filter((t: ITodo) => t.status === (statusFilter === "completed"));
       }
-
-      // Slice based on the FILTERED list
       const paginated = list.slice((page - 1) * limit, page * limit);
-      
-      set((state) => ({
-        columnData: { ...state.columnData, [categoryId]: paginated }
-      }));
-    } catch (e) {
-      console.error(e);
-    }
+      set((state) => ({ columnData: { ...state.columnData, [categoryId]: paginated } }));
+    } catch (e) { console.error(e); }
   },
 
   categoriesCreater: (data) => {
@@ -93,12 +81,50 @@ export const useTodo = create<ExtendedStore>()((set, get) => ({
     }
   },
 
+  updateTodo: async (todoId, updates) => {
+    const { data, columnData } = get();
+    const todo = data.find(t => t.id === todoId);
+    if (!todo) return;
+    const updated = { ...todo, ...updates };
+    
+    // Optimistic UI
+    set({
+      data: data.map(t => t.id === todoId ? updated : t),
+      columnData: Object.fromEntries(
+        Object.entries(columnData).map(([id, list]) => [
+          id, list.map(t => t.id === todoId ? updated : t)
+        ])
+      )
+    });
+
+    try {
+      await axios.put(`${API_URL}/${todoId}`, updated);
+      await get().fetchData();
+    } catch (e) { console.error(e); }
+  },
+
+  updateCategoryName: async (categoryId, newName) => {
+    const { categories, data } = get();
+    // Update local categories
+    const newCats = categories.map(c => c.categoryID === categoryId ? { ...c, categoryName: newName } : c);
+    set({ categories: newCats });
+    localStorage.setItem("column_order", JSON.stringify(newCats));
+
+    // Update all tasks in this category
+    const tasksToUpdate = data.filter(t => t.categoryID === categoryId);
+    try {
+      await Promise.all(tasksToUpdate.map(t => 
+        axios.put(`${API_URL}/${t.id}`, { ...t, categoryName: newName })
+      ));
+      await get().fetchData();
+    } catch (e) { console.error(e); }
+  },
+
   moveTodo: async (todoId, newCategoryID) => {
     const { categories, data, columnData } = get();
     const cat = categories.find(c => c.categoryID === newCategoryID);
     const todo = data.find(t => t.id === todoId);
     if (!cat || !todo) return;
-
     const oldID = todo.categoryID;
     const updated = { ...todo, categoryID: newCategoryID, categoryName: cat.categoryName };
 
@@ -114,39 +140,30 @@ export const useTodo = create<ExtendedStore>()((set, get) => ({
     try {
       await axios.put(`${API_URL}/${todoId}`, updated);
       await get().fetchData();
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
   },
 
   toggleTodo: async (todoId) => {
     const { data, columnData, statusFilter } = get();
     const todo = data.find(t => t.id === todoId);
     if (!todo) return;
-    
     set({ updatingTodoId: todoId });
     const nextStatus = !todo.status;
     const updated = { ...todo, status: nextStatus };
 
     set({
       data: data.map(t => t.id === todoId ? updated : t),
-      columnData: Object.fromEntries(
-        Object.entries(columnData).map(([id, list]) => {
-          let newList = list.map(t => t.id === todoId ? updated : t);
-          if (statusFilter !== "all") {
-            newList = newList.filter(t => t.status === (statusFilter === "completed"));
-          }
-          return [id, newList];
-        })
-      )
+      columnData: Object.fromEntries(Object.entries(columnData).map(([id, list]) => {
+        let newList = list.map(t => t.id === todoId ? updated : t);
+        if (statusFilter !== "all") newList = newList.filter(t => t.status === (statusFilter === "completed"));
+        return [id, newList];
+      }))
     });
 
     try {
       await axios.put(`${API_URL}/${todoId}`, updated);
       await get().fetchData();
-    } catch (e) {
-      console.error(e);
-    } finally {
+    } catch (e) { console.error(e); } finally {
       set({ updatingTodoId: null });
     }
   },
@@ -157,16 +174,10 @@ export const useTodo = create<ExtendedStore>()((set, get) => ({
       const { data, columnData } = get();
       set({
         data: data.filter(t => t.id !== todoId),
-        columnData: Object.fromEntries(
-          Object.entries(columnData).map(([id, list]) => [
-            id, list.filter(t => t.id !== todoId)
-          ])
-        )
+        columnData: Object.fromEntries(Object.entries(columnData).map(([id, list]) => [id, list.filter(t => t.id !== todoId)]))
       });
       await get().fetchData();
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
   },
 
   addTodo: async (todo) => {
@@ -174,9 +185,7 @@ export const useTodo = create<ExtendedStore>()((set, get) => ({
       const res = await axios.post(API_URL, { ...todo, status: false });
       set({ data: [...get().data, res.data] });
       await get().fetchData();
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
   },
 
   reorderCategories: (start, end) => {

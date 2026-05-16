@@ -73,17 +73,56 @@ const TodoColumn = memo(({ category, index }: Props) => {
             ...provided.draggableProps.style 
           }}
         >
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(category.categoryName);
+  const { updateCategoryName } = useTodo();
+
+  const handleTitleSubmit = async () => {
+    if (editedTitle.trim() && editedTitle !== category.categoryName) {
+      await updateCategoryName(category.categoryID, editedTitle);
+    }
+    setIsEditingTitle(false);
+  };
+
+  return (
+    <Draggable draggableId={`column-${category.categoryID}`} index={index}>
+      {(provided, snapshot) => (
+        <div
+          {...provided.draggableProps}
+          ref={provided.innerRef}
+          className={`flex flex-col min-w-[340px] rounded-[24px] p-6 min-h-[700px] transition-all duration-300 column-${theme} ${
+            snapshot.isDragging ? "shadow-2xl scale-[1.02] z-50" : ""
+          }`}
+          style={{ 
+            backgroundColor: "var(--c-bg)",
+            ...provided.draggableProps.style 
+          }}
+        >
           <div 
             {...provided.dragHandleProps}
             className="flex items-center justify-between mb-6 px-1"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style={{ backgroundColor: "var(--c-circle)", color: "var(--c-text)" }}>
+            <div className="flex items-center gap-3 w-full">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0" style={{ backgroundColor: "var(--c-circle)", color: "var(--c-text)" }}>
                 {todos.length}
               </div>
-              <h2 className="font-bold text-[#1B2559] text-xl tracking-tight">
-                {category.categoryName}
-              </h2>
+              {isEditingTitle ? (
+                <input
+                  autoFocus
+                  value={editedTitle}
+                  onChange={(e) => setEditedTitle(e.target.value)}
+                  onBlur={handleTitleSubmit}
+                  onKeyDown={(e) => e.key === "Enter" && handleTitleSubmit()}
+                  className="bg-white/50 border-none outline-none font-bold text-[#1B2559] text-xl tracking-tight rounded-lg px-2 w-full"
+                />
+              ) : (
+                <h2 
+                  onClick={() => setIsEditingTitle(true)}
+                  className="font-bold text-[#1B2559] text-xl tracking-tight cursor-pointer hover:bg-white/30 px-2 rounded-lg transition-all truncate"
+                >
+                  {category.categoryName}
+                </h2>
+              )}
             </div>
           </div>
 
