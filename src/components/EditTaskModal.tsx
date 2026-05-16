@@ -1,12 +1,12 @@
-import { useState } from "react";
-import type { ICategory } from "../types/todo.types";
+import { useState, useEffect } from "react";
+import type { ITodo } from "../types/todo.types";
 import { useTodo } from "../store/todo";
 import toast from "react-hot-toast";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  category: ICategory;
+  todo: ITodo;
 }
 
 const AVATAR_IMAGES = [
@@ -17,12 +17,20 @@ const AVATAR_IMAGES = [
   "https://i.pravatar.cc/150?u=5",
 ];
 
-const AddTaskModal = ({ isOpen, onClose, category }: Props) => {
-  const [title, setTitle] = useState("");
-  const [date, setDate] = useState("");
-  const [selectedAvatar, setSelectedAvatar] = useState(AVATAR_IMAGES[0]);
+const EditTaskModal = ({ isOpen, onClose, todo }: Props) => {
+  const [title, setTitle] = useState(todo.title);
+  const [date, setDate] = useState(todo.date);
+  const [selectedAvatar, setSelectedAvatar] = useState(todo.avatar || AVATAR_IMAGES[0]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { addTodo } = useTodo();
+  const { updateTodo } = useTodo();
+
+  useEffect(() => {
+    if (isOpen) {
+      setTitle(todo.title);
+      setDate(todo.date);
+      setSelectedAvatar(todo.avatar || AVATAR_IMAGES[0]);
+    }
+  }, [isOpen, todo]);
 
   if (!isOpen) return null;
 
@@ -31,12 +39,11 @@ const AddTaskModal = ({ isOpen, onClose, category }: Props) => {
     if (title.trim()) {
       setIsSubmitting(true);
       try {
-        await addTodo({ title, date, avatar: selectedAvatar, categoryID: category.categoryID, categoryName: category.categoryName });
-        toast.success("Task added!");
-        setTitle("");
+        await updateTodo(todo.id, { title, date, avatar: selectedAvatar });
+        toast.success("Task updated!");
         onClose();
       } catch (err) {
-        toast.error("Failed to add task");
+        toast.error("Failed to update task");
       } finally {
         setIsSubmitting(false);
       }
@@ -46,11 +53,10 @@ const AddTaskModal = ({ isOpen, onClose, category }: Props) => {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-xl">
-        <h2 className="text-xl font-bold text-gray-800 mb-4">Add Task to {category.categoryName}</h2>
+        <h2 className="text-xl font-bold text-gray-800 mb-4">Edit Task</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             autoFocus
-            placeholder="Task title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             disabled={isSubmitting}
@@ -80,7 +86,7 @@ const AddTaskModal = ({ isOpen, onClose, category }: Props) => {
             <button type="button" onClick={onClose} disabled={isSubmitting} className="flex-1 p-3 font-bold text-gray-500 bg-gray-100 rounded-xl disabled:opacity-50">Cancel</button>
             <button type="submit" disabled={isSubmitting} className="flex-1 p-3 font-bold text-white bg-blue-500 rounded-xl disabled:bg-blue-300 flex items-center justify-center gap-2">
               {isSubmitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
-              {isSubmitting ? "Adding..." : "Add Task"}
+              {isSubmitting ? "Saving..." : "Save"}
             </button>
           </div>
         </form>
@@ -89,4 +95,4 @@ const AddTaskModal = ({ isOpen, onClose, category }: Props) => {
   );
 };
 
-export default AddTaskModal;
+export default EditTaskModal;

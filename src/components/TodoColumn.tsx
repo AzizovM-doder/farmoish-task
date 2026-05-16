@@ -20,16 +20,17 @@ interface Props {
 }
 
 const TodoColumn = memo(({ category, index }: Props) => {
-  const { columnData, fetchColumn, data, statusFilter, searchValue } = useTodo();
+  const { columnData, fetchColumn, data, statusFilter, searchValue, updateCategoryName } = useTodo();
   const theme = THEME_MAP[category.categoryName] || THEME_LIST[category.categoryID % THEME_LIST.length];
   
   const [isLoading, setIsLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 3;
-
-  const todos = columnData[category.categoryID] || [];
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(category.categoryName);
   
+  const itemsPerPage = 3;
+  const todos = columnData[category.categoryID] || [];
   const totalInCategory = data.filter(t => t.categoryID === category.categoryID).length;
   const totalPages = Math.ceil(totalInCategory / itemsPerPage);
 
@@ -43,39 +44,18 @@ const TodoColumn = memo(({ category, index }: Props) => {
     const handler = setTimeout(() => {
       loadData();
     }, 400);
-
     return () => clearTimeout(handler);
-  }, [currentPage, category.categoryID, statusFilter, searchValue]);
+  }, [currentPage, category.categoryID, statusFilter, searchValue, data]);
 
-  // Reset to page 1 when filter or search changes
   useEffect(() => {
     setCurrentPage(1);
   }, [statusFilter, searchValue]);
 
-  // If current page becomes empty (due to move/delete), go back one page
   useEffect(() => {
     if (totalPages > 0 && currentPage > totalPages) {
       setCurrentPage(totalPages);
     }
   }, [totalPages, currentPage]);
-
-  return (
-    <Draggable draggableId={`column-${category.categoryID}`} index={index}>
-      {(provided, snapshot) => (
-        <div
-          {...provided.draggableProps}
-          ref={provided.innerRef}
-          className={`flex flex-col min-w-[340px] rounded-[24px] p-6 min-h-[700px] transition-all duration-300 column-${theme} ${
-            snapshot.isDragging ? "shadow-2xl scale-[1.02] z-50" : ""
-          }`}
-          style={{ 
-            backgroundColor: "var(--c-bg)",
-            ...provided.draggableProps.style 
-          }}
-        >
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [editedTitle, setEditedTitle] = useState(category.categoryName);
-  const { updateCategoryName } = useTodo();
 
   const handleTitleSubmit = async () => {
     if (editedTitle.trim() && editedTitle !== category.categoryName) {

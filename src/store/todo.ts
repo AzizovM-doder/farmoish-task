@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { ICategory, IStore, ITodo } from "../types/todo.types";
 import axios from "axios";
+import toast from "react-hot-toast";
 
 const API_URL = "https://6a0702b9c83ba8ad9b3e4bae.mockapi.io/todo/api";
 
@@ -40,6 +41,7 @@ export const useTodo = create<ExtendedStore>()((set, get) => ({
       const { searchValue, statusFilter } = get();
       const res = await axios.get(`${API_URL}?limit=100`);
       let list = res.data;
+      list = list.map((t: ITodo) => ({ ...t, categoryID: Number(t.categoryID) }));
       if (searchValue) {
         list = list.filter((t: ITodo) => t.title.toLowerCase().includes(searchValue.toLowerCase()));
       }
@@ -52,27 +54,19 @@ export const useTodo = create<ExtendedStore>()((set, get) => ({
   },
 
   fetchColumn: async (categoryId, page, limit) => {
-    try {
-      const { statusFilter, searchValue } = get();
-      const res = await axios.get(`${API_URL}?categoryID=${categoryId}&limit=100`);
-      let list = res.data;
-      if (searchValue) {
-        list = list.filter((t: ITodo) => t.title.toLowerCase().includes(searchValue.toLowerCase()));
-      }
-      if (statusFilter !== "all") {
-        list = list.filter((t: ITodo) => t.status === (statusFilter === "completed"));
-      }
-      const paginated = list.slice((page - 1) * limit, page * limit);
-      set((state) => ({ columnData: { ...state.columnData, [categoryId]: paginated } }));
-    } catch (e) { console.error(e); }
+    const { data } = get();
+    const list = data.filter(t => Number(t.categoryID) === Number(categoryId));
+    const paginated = list.slice((page - 1) * limit, page * limit);
+    set((state) => ({ columnData: { ...state.columnData, [categoryId]: paginated } }));
   },
 
   categoriesCreater: (data) => {
     if (get().categories.length > 0) return;
     const cats: ICategory[] = [];
     data.forEach((e) => {
-      if (!cats.find((c) => c.categoryID == e.categoryID)) {
-        cats.push({ categoryName: e.categoryName, categoryID: e.categoryID });
+      const id = Number(e.categoryID);
+      if (!cats.find((c) => Number(c.categoryID) === id)) {
+        cats.push({ categoryName: e.categoryName, categoryID: id });
       }
     });
     if (cats.length > 0) {
@@ -82,88 +76,76 @@ export const useTodo = create<ExtendedStore>()((set, get) => ({
   },
 
   updateTodo: async (todoId, updates) => {
-    const { data, columnData } = get();
+    const { data } = get();
     const todo = data.find(t => t.id === todoId);
     if (!todo) return;
     const updated = { ...todo, ...updates };
-    
-    // Optimistic UI
-    set({
-      data: data.map(t => t.id === todoId ? updated : t),
-      columnData: Object.fromEntries(
-        Object.entries(columnData).map(([id, list]) => [
-          id, list.map(t => t.id === todoId ? updated : t)
-        ])
-      )
-    });
-
     try {
       await axios.put(`${API_URL}/${todoId}`, updated);
       await get().fetchData();
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      toast.error("Failed to update task");
+      throw e; 
+    }
   },
 
   updateCategoryName: async (categoryId, newName) => {
     const { categories, data } = get();
-    // Update local categories
-    const newCats = categories.map(c => c.categoryID === categoryId ? { ...c, categoryName: newName } : c);
+    const newCats = categories.map(c => Number(c.categoryID) === Number(categoryId) ? { ...c, categoryName: newName } : c);
     set({ categories: newCats });
     localStorage.setItem("column_order", JSON.stringify(newCats));
-
-    // Update all tasks in this category
-    const tasksToUpdate = data.filter(t => t.categoryID === categoryId);
+    const tasksToUpdate = data.filter(t => Number(t.categoryID) === Number(categoryId));
     try {
-      await Promise.all(tasksToUpdate.map(t => 
-        axios.put(`${API_URL}/${t.id}`, { ...t, categoryName: newName })
-      ));
+      await Promise.all(tasksToUpdate.map(t => axios.put(`${API_URL}/${t.id}`, { ...t, categoryName: newName })));
+      toast.success("Column name updated!");
       await get().fetchData();
     } catch (e) { console.error(e); }
   },
 
   moveTodo: async (todoId, newCategoryID) => {
     const { categories, data, columnData } = get();
-    const cat = categories.find(c => c.categoryID === newCategoryID);
+    const cat = categories.find(c => Number(c.categoryID) === Number(newCategoryID));
     const todo = data.find(t => t.id === todoId);
     if (!cat || !todo) return;
-    const oldID = todo.categoryID;
-    const updated = { ...todo, categoryID: newCategoryID, categoryName: cat.categoryName };
+    
+    const oldID = Number(todo.categoryID);
+    const targetID = Number(newCategoryID);
+    if (oldID === targetID) return;
 
+    const updated = { ...todo, categoryID: targetID, categoryName: cat.categoryName };
+
+    // Optimistic UI update: change locally first
     set({
       data: data.map(t => t.id === todoId ? updated : t),
       columnData: {
         ...columnData,
         [oldID]: (columnData[oldID] || []).filter(t => t.id !== todoId),
-        [newCategoryID]: [updated, ...(columnData[newCategoryID] || [])].slice(0, 3)
+        [targetID]: [updated, ...(columnData[targetID] || []).filter(t => t.id !== todoId)].slice(0, 3)
       }
     });
 
     try {
       await axios.put(`${API_URL}/${todoId}`, updated);
-      await get().fetchData();
-    } catch (e) { console.error(e); }
+      // Background sync
+      get().fetchData();
+    } catch (e) { 
+      // Rollback if needed or just show error
+      console.error("Move failed", e);
+    }
   },
 
   toggleTodo: async (todoId) => {
-    const { data, columnData, statusFilter } = get();
+    const { data } = get();
     const todo = data.find(t => t.id === todoId);
     if (!todo) return;
     set({ updatingTodoId: todoId });
     const nextStatus = !todo.status;
     const updated = { ...todo, status: nextStatus };
-
-    set({
-      data: data.map(t => t.id === todoId ? updated : t),
-      columnData: Object.fromEntries(Object.entries(columnData).map(([id, list]) => {
-        let newList = list.map(t => t.id === todoId ? updated : t);
-        if (statusFilter !== "all") newList = newList.filter(t => t.status === (statusFilter === "completed"));
-        return [id, newList];
-      }))
-    });
-
     try {
       await axios.put(`${API_URL}/${todoId}`, updated);
+      toast.success(nextStatus ? "Marked as Done" : "Marked as Todo");
       await get().fetchData();
-    } catch (e) { console.error(e); } finally {
+    } catch (e) { toast.error("Update failed"); } finally {
       set({ updatingTodoId: null });
     }
   },
@@ -171,21 +153,19 @@ export const useTodo = create<ExtendedStore>()((set, get) => ({
   deleteTodo: async (todoId) => {
     try {
       await axios.delete(`${API_URL}/${todoId}`);
-      const { data, columnData } = get();
-      set({
-        data: data.filter(t => t.id !== todoId),
-        columnData: Object.fromEntries(Object.entries(columnData).map(([id, list]) => [id, list.filter(t => t.id !== todoId)]))
-      });
+      toast.success("Task deleted");
       await get().fetchData();
-    } catch (e) { console.error(e); }
+    } catch (e) { toast.error("Delete failed"); }
   },
 
   addTodo: async (todo) => {
     try {
-      const res = await axios.post(API_URL, { ...todo, status: false });
-      set({ data: [...get().data, res.data] });
+      await axios.post(API_URL, { ...todo, status: false });
       await get().fetchData();
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      toast.error("Failed to add task");
+      throw e; 
+    }
   },
 
   reorderCategories: (start, end) => {
@@ -194,5 +174,6 @@ export const useTodo = create<ExtendedStore>()((set, get) => ({
     cats.splice(end, 0, item);
     set({ categories: cats });
     localStorage.setItem("column_order", JSON.stringify(cats));
+    toast.success("Columns reordered");
   },
 }));
